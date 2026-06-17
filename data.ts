@@ -1,45 +1,55 @@
 import React from 'react';
-import { Play, Tv } from 'lucide-react';
+import { StreamInfo } from '../types';
+import { Headphones, Rocket, Globe, Tv, PlayCircle } from 'lucide-react';
 
-interface HeaderProps {
-  inputValue: string;
-  setInputValue: (v: string) => void;
-  onSubmit: (v: string) => void;
+interface StreamListProps {
+  streams: StreamInfo[];
+  activeId: string | null;
+  onSelect: (id: string) => void;
 }
 
-export default function Header({ inputValue, setInputValue, onSubmit }: HeaderProps) {
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputValue.trim()) onSubmit(inputValue);
-  };
+const iconMap: Record<string, React.ReactNode> = {
+  Headphones: <Headphones className="w-5 h-5" />,
+  Rocket: <Rocket className="w-5 h-5" />,
+  Globe: <Globe className="w-5 h-5" />,
+  Tv: <Tv className="w-5 h-5" />
+};
 
+export default function StreamList({ streams, activeId, onSelect }: StreamListProps) {
   return (
-    <header className="border-b border-white/10 bg-[#0F0F0F]/95 pt-4 pb-4 px-6 sticky top-0 z-10 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-red-600/10 p-2.5 rounded-xl text-red-600">
-            <Tv className="w-6 h-6" />
-          </div>
-          <h1 className="text-xl font-bold tracking-tight text-white">مشغل يوتيوب <span className="text-red-600">المباشر</span></h1>
-        </div>
-        <form onSubmit={handleSubmit} className="flex w-full sm:w-auto mt-2 sm:mt-0 gap-2">
-          <input
-            type="text"
-            dir="auto"
-            placeholder="أدخل رابط يوتيوب أو Video ID..."
-            className="flex-1 sm:w-[22rem] px-6 py-2.5 rounded-full bg-[#1F1F1F] border border-white/10 text-white placeholder:text-white/40 focus:outline-none focus:border-red-600/50 focus:ring-1 focus:ring-red-600/50 transition-all font-sans text-sm"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-          />
-          <button 
-            type="submit" 
-            className="bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-full flex items-center gap-2 transition-colors font-medium shadow-lg shadow-red-900/20 text-sm"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            <span>تشغيل</span>
-          </button>
-        </form>
+    <div className="bg-[#0F0F0F] rounded-2xl border border-white/10 p-5 sticky top-28">
+      <h3 className="text-xs uppercase text-white/40 font-bold mb-4 tracking-widest px-2">
+        القنوات المقترحة
+      </h3>
+      <div className="flex flex-col gap-2.5">
+        {streams.map((stream) => {
+          const isActive = stream.id === activeId;
+          return (
+            <button
+              key={stream.id}
+              onClick={() => onSelect(stream.id)}
+              className={`w-full text-right flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 group ${
+                isActive 
+                ? 'bg-white/5 border border-white/10 text-white shadow-sm' 
+                : 'bg-transparent border border-transparent hover:bg-white/5 hover:border-white/10 text-white/80 hover:text-white'
+              }`}
+            >
+              <div className={`p-2 rounded-xl transition-colors ${isActive ? 'bg-red-600/20 text-red-500' : 'bg-white/10 text-white/60 group-hover:text-white group-hover:bg-white/20'}`}>
+                {stream.icon && iconMap[stream.icon] ? iconMap[stream.icon] : <PlayCircle className="w-5 h-5" />}
+              </div>
+              <div className="flex flex-col">
+                <span className={`font-semibold ${isActive ? 'text-white' : ''} text-sm`}>{stream.title}</span>
+                <span className="text-xs text-white/40 mt-1">{stream.category}</span>
+              </div>
+              {isActive && (
+                <div className="mr-auto">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></div>
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
-    </header>
+    </div>
   );
 }

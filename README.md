@@ -1,8 +1,9 @@
 {
-  "name": "قناة أولى ثانوى التعليمية ",
-  "description": "تطبيق لعرض قنوات البث المباشر على يوتيوب بتصميم عصري وداكن مخصص",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  "videos": [
+    {
+      "id": "b3O3XMEkE0M",
+      "title": "البث المباشر اليومي",
+      "createdAt": "2026-06-15T00:00:00.000Z"
+    }
   ]
 }
