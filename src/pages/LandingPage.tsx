@@ -103,7 +103,7 @@ export default function LandingPage() {
                 <Tv className="w-28 h-28 text-teal-400 drop-shadow-2xl relative z-10" />
               </div>
               <h1 className="text-4xl md:text-5xl font-bold text-white mb-12 tracking-wide text-center drop-shadow-lg leading-tight">
-                قناة أولى ثانوى التعليمية
+                قناة أولى ثانوى
               </h1>
               <div className="relative w-full max-w-xs">
                 <button 
@@ -148,7 +148,7 @@ export default function LandingPage() {
               onClick={handleFooterClick}
               className="cursor-pointer select-none text-white/30 hover:text-white/60 transition-colors inline-block px-4 py-2 text-sm font-light tracking-wide"
             >
-              جميع حقوق البث محفوظة © {new Date().getFullYear()} قناة أولى ثانوى التعليمية
+              جميع حقوق البث محفوظة © {new Date().getFullYear()} قناة أولى ثانوى
             </span>
           </div>
         </div>
@@ -187,7 +187,7 @@ export default function LandingPage() {
               onClick={handleFooterClick}
               className="pointer-events-auto cursor-pointer select-none text-white/30 hover:text-white/60 transition-colors inline-block px-4 py-2 text-xs sm:text-sm font-light tracking-wide bg-black/40 backdrop-blur-md rounded-full border border-white/10"
             >
-              جميع حقوق البث محفوظة © {new Date().getFullYear()} قناة أولى ثانوى التعليمية
+              جميع حقوق البث محفوظة © {new Date().getFullYear()} قناة أولى ثانوى
             </span>
           </div>
 
@@ -197,7 +197,7 @@ export default function LandingPage() {
               <div className="flex items-center gap-3">
                 <Tv className="w-8 h-8 text-teal-400" />
                 <h1 className="text-xl font-bold text-teal-400">
-                  قناة أولى ثانوى التعليمية
+                  قناة أولى ثانوى
                 </h1>
               </div>
 
