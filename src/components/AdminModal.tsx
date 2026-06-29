@@ -8,6 +8,70 @@ interface AdminModalProps {
   onRefreshVideos: () => void;
 }
 
+const DB_NAME = 'AdminAuthDB';
+const STORE_NAME = 'secrets';
+const PASSWORD_KEY = 'admin_password';
+
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function getStoredPassword(): Promise<string | null> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(PASSWORD_KEY);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.error('IndexedDB Error:', err);
+    return null;
+  }
+}
+
+async function saveStoredPassword(password: string): Promise<void> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.put(password, PASSWORD_KEY);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.error('IndexedDB Error:', err);
+  }
+}
+
+async function clearStoredPassword(): Promise<void> {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.delete(PASSWORD_KEY);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.error('IndexedDB Error:', err);
+  }
+}
+
 export default function AdminModal({ isOpen, onClose, onRefreshVideos }: AdminModalProps) {
   const [links, setLinks] = useState<string[]>(['']);
   const [password, setPassword] = useState('');
@@ -38,6 +102,34 @@ export default function AdminModal({ isOpen, onClose, onRefreshVideos }: AdminMo
         fetchChannels();
       }
     }
+  }, [isOpen, isAuthenticated]);
+
+  useEffect(() => {
+    const attemptAutoLogin = async () => {
+      if (isOpen && !isAuthenticated) {
+        const storedPass = await getStoredPassword();
+        if (storedPass) {
+          try {
+            const res = await fetch('/api/videos/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password: storedPass }),
+            });
+            
+            if (res.ok) {
+              setPassword(storedPass);
+              setIsAuthenticated(true);
+            } else {
+              await clearStoredPassword();
+            }
+          } catch (e) {
+            console.error('Auto-login fetch error:', e);
+          }
+        }
+      }
+    };
+    
+    attemptAutoLogin();
   }, [isOpen, isAuthenticated]);
 
   if (!isOpen) return null;
@@ -76,7 +168,10 @@ export default function AdminModal({ isOpen, onClose, onRefreshVideos }: AdminMo
       fetchChannels();
       onRefreshVideos();
     } else {
-      if (res.status === 401) setIsAuthenticated(false);
+      if (res.status === 401) {
+        setIsAuthenticated(false);
+        clearStoredPassword();
+      }
     }
   };
 
@@ -90,6 +185,7 @@ export default function AdminModal({ isOpen, onClose, onRefreshVideos }: AdminMo
     
     if (res.ok) {
       setIsAuthenticated(true);
+      await saveStoredPassword(password);
     } else {
       // Just clear password on fail
       setPassword('');
@@ -108,7 +204,10 @@ export default function AdminModal({ isOpen, onClose, onRefreshVideos }: AdminMo
       fetchChannels();
       onRefreshVideos();
     } else {
-      if (res.status === 401) setIsAuthenticated(false);
+      if (res.status === 401) {
+        setIsAuthenticated(false);
+        clearStoredPassword();
+      }
     }
   };
 
@@ -207,7 +306,11 @@ export default function AdminModal({ isOpen, onClose, onRefreshVideos }: AdminMo
             <header className="bg-white shadow-sm border-b border-neutral-100 p-4 flex items-center justify-between z-10 shrink-0">
               <h1 className="text-xl font-bold text-indigo-600 px-4">لوحة التحكم</h1>
               <button 
-                onClick={() => { setIsAuthenticated(false); setPassword(''); }}
+                onClick={async () => { 
+                  setIsAuthenticated(false); 
+                  setPassword(''); 
+                  await clearStoredPassword();
+                }}
                 className="flex items-center gap-2 text-neutral-500 hover:text-red-600 transition-colors pl-12"
               >
                 <LogOut className="w-5 h-5" />
