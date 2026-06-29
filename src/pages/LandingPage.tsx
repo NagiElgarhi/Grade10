@@ -3,6 +3,7 @@ import { PlayCircle, Tv, Volume2, VolumeX, Play, Pause, ListVideo, Minimize2, Ma
 import Player from '../components/Player';
 import AdminModal from '../components/AdminModal';
 import UserGuideModal from '../components/UserGuideModal';
+import { getLocalChannels, saveLocalChannels } from '../utils/localDB';
 
 export default function LandingPage() {
   const [channels, setChannels] = useState<any[]>([]);
@@ -86,10 +87,11 @@ export default function LandingPage() {
     }
   };
 
-  const fetchChannels = () => {
-    fetch('/api/channels')
-      .then(res => res.json())
-      .then(data => {
+  const fetchChannels = async () => {
+    try {
+      const res = await fetch('/api/channels');
+      if (res.ok) {
+        const data = await res.json();
         if (data.channels) {
           setChannels(prev => {
             if (JSON.stringify(prev) !== JSON.stringify(data.channels)) {
@@ -97,16 +99,36 @@ export default function LandingPage() {
             }
             return prev;
           });
-          // Update start time to the current channel's start time if we are broadcasting
+          // Save a copy of backend channels locally to indexedDB so it stays synchronized
+          await saveLocalChannels(data.channels);
+          
           if (currentChannelId) {
             const activeChannel = data.channels.find((c: any) => c.id === currentChannelId);
             if (activeChannel && activeChannel.startTime) {
               setStartTime(activeChannel.startTime);
             }
           }
+          return;
         }
-      })
-      .catch(console.error);
+      }
+    } catch (e) {
+      console.warn('Backend offline, using local database:', e);
+    }
+
+    // Fallback to IndexedDB
+    const localChans = await getLocalChannels();
+    setChannels(prev => {
+      if (JSON.stringify(prev) !== JSON.stringify(localChans)) {
+        return localChans;
+      }
+      return prev;
+    });
+    if (currentChannelId) {
+      const activeChannel = localChans.find((c: any) => c.id === currentChannelId);
+      if (activeChannel && activeChannel.startTime) {
+        setStartTime(activeChannel.startTime);
+      }
+    }
   };
 
   const handleFooterClick = (e: React.MouseEvent) => {

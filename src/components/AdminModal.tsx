@@ -1,75 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { extractVideoId } from '../utils';
 import { Lock, Trash2, Plus, LogOut, X, Eye, EyeOff, Tv } from 'lucide-react';
+import { 
+  getStoredPassword, 
+  saveStoredPassword, 
+  clearStoredPassword, 
+  verifyPasswordLocally, 
+  getLocalChannels, 
+  saveLocalChannels 
+} from '../utils/localDB';
 
 interface AdminModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRefreshVideos: () => void;
-}
-
-const DB_NAME = 'AdminAuthDB';
-const STORE_NAME = 'secrets';
-const PASSWORD_KEY = 'admin_password';
-
-function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function getStoredPassword(): Promise<string | null> {
-  try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(PASSWORD_KEY);
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
-    });
-  } catch (err) {
-    console.error('IndexedDB Error:', err);
-    return null;
-  }
-}
-
-async function saveStoredPassword(password: string): Promise<void> {
-  try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(password, PASSWORD_KEY);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  } catch (err) {
-    console.error('IndexedDB Error:', err);
-  }
-}
-
-async function clearStoredPassword(): Promise<void> {
-  try {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.delete(PASSWORD_KEY);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-  } catch (err) {
-    console.error('IndexedDB Error:', err);
-  }
 }
 
 export default function AdminModal({ isOpen, onClose, onRefreshVideos }: AdminModalProps) {
@@ -82,18 +26,29 @@ export default function AdminModal({ isOpen, onClose, onRefreshVideos }: AdminMo
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [newChannelName, setNewChannelName] = useState('');
 
-  const fetchChannels = () => {
-    fetch('/api/channels')
-      .then(res => res.json())
-      .then(data => {
+  const fetchChannels = async () => {
+    try {
+      const res = await fetch('/api/channels');
+      if (res.ok) {
+        const data = await res.json();
         if (data.channels) {
           setChannels(data.channels);
+          await saveLocalChannels(data.channels);
           if (!selectedChannelId && data.channels.length > 0) {
             setSelectedChannelId(data.channels[0].id);
           }
+          return;
         }
-      })
-      .catch(console.error);
+      }
+    } catch (e) {
+      console.warn('Backend offline, using local database in Admin:', e);
+    }
+
+    const localChans = await getLocalChannels();
+    setChannels(localChans);
+    if (!selectedChannelId && localChans.length > 0) {
+      setSelectedChannelId(localChans[0].id);
+    }
   };
 
   useEffect(() => {
@@ -108,23 +63,11 @@ export default function AdminModal({ isOpen, onClose, onRefreshVideos }: AdminMo
     const attemptAutoLogin = async () => {
       if (isOpen && !isAuthenticated) {
         const storedPass = await getStoredPassword();
-        if (storedPass) {
-          try {
-            const res = await fetch('/api/videos/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ password: storedPass }),
-            });
-            
-            if (res.ok) {
-              setPassword(storedPass);
-              setIsAuthenticated(true);
-            } else {
-              await clearStoredPassword();
-            }
-          } catch (e) {
-            console.error('Auto-login fetch error:', e);
-          }
+        if (storedPass && verifyPasswordLocally(storedPass)) {
+          setPassword(storedPass);
+          setIsAuthenticated(true);
+        } else if (storedPass) {
+          await clearStoredPassword();
         }
       }
     };
@@ -157,85 +100,133 @@ export default function AdminModal({ isOpen, onClose, onRefreshVideos }: AdminMo
       return; // Do nothing if no valid IDs
     }
 
-    const res = await fetch(`/api/channels/${selectedChannelId}/videos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, ids: validIds, reset }),
+    // Prepare updated local state
+    const updatedChannels = channels.map(chan => {
+      if (chan.id === selectedChannelId) {
+        const newVids = validIds.map((id, idx) => ({
+          id,
+          title: `فيديو مضاف جديد #${chan.videos.length + idx + 1}`,
+          category: 'دروس تعليمية',
+          uid: 'vid-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9)
+        }));
+        return {
+          ...chan,
+          videos: reset ? newVids : [...chan.videos, ...newVids]
+        };
+      }
+      return chan;
     });
 
-    if (res.ok) {
-      setLinks(['']);
-      fetchChannels();
-      onRefreshVideos();
-    } else {
-      if (res.status === 401) {
-        setIsAuthenticated(false);
-        clearStoredPassword();
-      }
+    // Save to IndexedDB and state immediately
+    await saveLocalChannels(updatedChannels);
+    setChannels(updatedChannels);
+    setLinks(['']);
+    onRefreshVideos();
+
+    // Try synchronizing with backend
+    try {
+      await fetch(`/api/channels/${selectedChannelId}/videos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, ids: validIds, reset }),
+      });
+    } catch (e) {
+      console.warn('Backend sync for adding videos failed:', e);
     }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/videos/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    });
-    
-    if (res.ok) {
+    const isLocalValid = verifyPasswordLocally(password);
+    if (isLocalValid) {
       setIsAuthenticated(true);
       await saveStoredPassword(password);
+      
+      // Try backend verification
+      try {
+        await fetch('/api/videos/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+        });
+      } catch (e) {
+        console.warn('Backend password verification offline:', e);
+      }
     } else {
-      // Just clear password on fail
       setPassword('');
     }
   };
 
   const handleDeleteVideo = async (uid: string) => {
     if (!selectedChannelId) return;
-    const res = await fetch(`/api/channels/${selectedChannelId}/videos/${uid}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
+
+    // Update local state copy
+    const updatedChannels = channels.map(chan => {
+      if (chan.id === selectedChannelId) {
+        return {
+          ...chan,
+          videos: chan.videos.filter((v: any) => v.uid !== uid)
+        };
+      }
+      return chan;
     });
 
-    if (res.ok) {
-      fetchChannels();
-      onRefreshVideos();
-    } else {
-      if (res.status === 401) {
-        setIsAuthenticated(false);
-        clearStoredPassword();
-      }
+    // Save locally
+    await saveLocalChannels(updatedChannels);
+    setChannels(updatedChannels);
+    onRefreshVideos();
+
+    // Try backend sync
+    try {
+      await fetch(`/api/channels/${selectedChannelId}/videos/${uid}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+    } catch (e) {
+      console.warn('Backend sync for deleting video failed:', e);
     }
   };
 
   const handleCreateChannel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newChannelName.trim()) return;
-    
-    const res = await fetch('/api/channels', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, name: newChannelName.trim() }),
-    });
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.channel) {
-        setSelectedChannelId(data.channel.id);
-        setTimeout(() => {
-          const nextInput = document.getElementById('link-input-0');
-          if (nextInput) {
-            nextInput.focus();
-            nextInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 100);
+    const newChanId = 'chan-' + Date.now();
+    const newChan = {
+      id: newChanId,
+      name: newChannelName.trim(),
+      videos: [],
+      startTime: new Date().toISOString()
+    };
+
+    const updatedChannels = [...channels, newChan];
+
+    // Save locally
+    await saveLocalChannels(updatedChannels);
+    setChannels(updatedChannels);
+    setSelectedChannelId(newChanId);
+    setNewChannelName('');
+    onRefreshVideos();
+
+    // Auto focus the input
+    setTimeout(() => {
+      const nextInput = document.getElementById('link-input-0');
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-      setNewChannelName('');
-      fetchChannels();
-      onRefreshVideos();
+    }, 100);
+
+    // Try backend sync
+    try {
+      await fetch('/api/channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, name: newChannelName.trim() }),
+      });
+    } catch (e) {
+      console.warn('Backend sync for creating channel failed:', e);
     }
   };
 
@@ -243,16 +234,25 @@ export default function AdminModal({ isOpen, onClose, onRefreshVideos }: AdminMo
     const confirmDelete = window.confirm('هل أنت متأكد من حذف هذه القناة بجميع فيديوهاتها؟');
     if (!confirmDelete) return;
 
-    const res = await fetch(`/api/channels/${id}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    });
+    const updatedChannels = channels.filter(c => c.id !== id);
 
-    if (res.ok) {
-      if (selectedChannelId === id) setSelectedChannelId(null);
-      fetchChannels();
-      onRefreshVideos();
+    // Save locally
+    await saveLocalChannels(updatedChannels);
+    setChannels(updatedChannels);
+    if (selectedChannelId === id) {
+      setSelectedChannelId(updatedChannels[0]?.id || null);
+    }
+    onRefreshVideos();
+
+    // Try backend sync
+    try {
+      await fetch(`/api/channels/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+    } catch (e) {
+      console.warn('Backend sync for deleting channel failed:', e);
     }
   };
 
