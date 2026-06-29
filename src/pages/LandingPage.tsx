@@ -31,6 +31,47 @@ export default function LandingPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const checkUrlSecret = () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const hasSecretParam = 
+        searchParams.has('admin') || 
+        searchParams.has('control') || 
+        searchParams.has('secret') || 
+        searchParams.has('schedule') || 
+        searchParams.has('panel') || 
+        searchParams.has('manage') ||
+        searchParams.has('controlpanel') ||
+        searchParams.has('جدولة') ||
+        searchParams.has('تحكم') ||
+        searchParams.has('سر');
+
+      const hash = window.location.hash.toLowerCase();
+      const hasSecretHash = 
+        hash.includes('admin') || 
+        hash.includes('control') || 
+        hash.includes('secret') || 
+        hash.includes('schedule') || 
+        hash.includes('panel') || 
+        hash.includes('manage') ||
+        hash.includes('controlpanel') ||
+        hash.includes('جدولة') ||
+        hash.includes('تحكم') ||
+        hash.includes('سر');
+
+      if (hasSecretParam || hasSecretHash) {
+        setIsAdminOpen(true);
+      }
+    };
+
+    checkUrlSecret();
+
+    window.addEventListener('hashchange', checkUrlSecret);
+    return () => {
+      window.removeEventListener('hashchange', checkUrlSecret);
+    };
+  }, []);
+
   const toggleFullscreen = () => {
     const elem = document.getElementById('broadcast-container');
     if (!elem) return;
@@ -80,12 +121,7 @@ export default function LandingPage() {
 
   const handleTitleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const nextCount = titleClickCount + 1;
-    setTitleClickCount(nextCount);
-    if (nextCount >= 7) {
-      setIsGuideOpen(true);
-      setTitleClickCount(0);
-    }
+    setIsGuideOpen(true);
   };
 
   const toggleUI = () => {
@@ -157,7 +193,7 @@ export default function LandingPage() {
               <h1 
                 onClick={handleTitleClick}
                 className="text-3xl md:text-4xl font-bold text-white mb-6 tracking-wide text-center drop-shadow-lg leading-tight cursor-pointer select-none active:scale-98 transition-transform"
-                title="اضغط 7 مرات لفتح دليل الاستخدام والبرمجة"
+                title="اضغط لفتح دليل الاستخدام والتعريف"
               >
                 قناة أولى ثانوى
               </h1>
@@ -221,7 +257,7 @@ export default function LandingPage() {
                 <h1 
                   onClick={handleTitleClick}
                   className="text-xl font-bold text-teal-400 cursor-pointer select-none active:scale-98 transition-transform"
-                  title="اضغط 7 مرات لفتح دليل الاستخدام والبرمجة"
+                  title="اضغط لفتح دليل الاستخدام والتعريف"
                 >
                   قناة أولى ثانوى
                 </h1>
