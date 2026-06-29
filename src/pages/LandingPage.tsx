@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { PlayCircle, Tv, Volume2, VolumeX, Play, Pause, ListVideo, Minimize2, Maximize2, X } from 'lucide-react';
 import Player from '../components/Player';
 import AdminModal from '../components/AdminModal';
+import UserGuideModal from '../components/UserGuideModal';
 
 export default function LandingPage() {
   const [channels, setChannels] = useState<any[]>([]);
@@ -9,6 +10,8 @@ export default function LandingPage() {
   const [showChannelDropdown, setShowChannelDropdown] = useState(false);
   const [startTime, setStartTime] = useState<string | null>(null);
   const [clickCount, setClickCount] = useState(0);
+  const [titleClickCount, setTitleClickCount] = useState(0);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [showUI, setShowUI] = useState(true);
   const [volume, setVolume] = useState(80);
@@ -72,6 +75,16 @@ export default function LandingPage() {
     if (newCount >= 12) {
       setIsAdminOpen(true);
       setClickCount(0);
+    }
+  };
+
+  const handleTitleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextCount = titleClickCount + 1;
+    setTitleClickCount(nextCount);
+    if (nextCount >= 7) {
+      setIsGuideOpen(true);
+      setTitleClickCount(0);
     }
   };
 
@@ -141,7 +154,11 @@ export default function LandingPage() {
                 <div className="absolute inset-0 bg-teal-500/30 blur-2xl rounded-full scale-150"></div>
                 <Tv className="w-24 h-24 text-teal-400 drop-shadow-2xl relative z-10" />
               </div>
-              <h1 className="text-3xl md:text-4xl font-bold text-white mb-6 tracking-wide text-center drop-shadow-lg leading-tight">
+              <h1 
+                onClick={handleTitleClick}
+                className="text-3xl md:text-4xl font-bold text-white mb-6 tracking-wide text-center drop-shadow-lg leading-tight cursor-pointer select-none active:scale-98 transition-transform"
+                title="اضغط 7 مرات لفتح دليل الاستخدام والبرمجة"
+              >
                 قناة أولى ثانوى
               </h1>
 
@@ -201,7 +218,11 @@ export default function LandingPage() {
             <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Tv className="w-8 h-8 text-teal-400" />
-                <h1 className="text-xl font-bold text-teal-400">
+                <h1 
+                  onClick={handleTitleClick}
+                  className="text-xl font-bold text-teal-400 cursor-pointer select-none active:scale-98 transition-transform"
+                  title="اضغط 7 مرات لفتح دليل الاستخدام والبرمجة"
+                >
                   قناة أولى ثانوى
                 </h1>
               </div>
@@ -305,6 +326,11 @@ export default function LandingPage() {
         isOpen={isAdminOpen} 
         onClose={() => setIsAdminOpen(false)} 
         onRefreshVideos={fetchChannels}
+      />
+
+      <UserGuideModal 
+        isOpen={isGuideOpen} 
+        onClose={() => setIsGuideOpen(false)} 
       />
     </div>
   );
