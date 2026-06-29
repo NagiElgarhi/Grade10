@@ -11,7 +11,7 @@ export default function LandingPage() {
   const [clickCount, setClickCount] = useState(0);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [showUI, setShowUI] = useState(true);
-  const [volume, setVolume] = useState(0);
+  const [volume, setVolume] = useState(80);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
@@ -95,27 +95,22 @@ export default function LandingPage() {
     <div dir="rtl" className="h-[100dvh] w-screen bg-black text-white font-sans overflow-hidden relative select-none">
       
       {!isVideoOpen ? (
-        <div className="flex flex-col items-center justify-center w-full h-full relative z-20 pointer-events-auto bg-gradient-to-b from-neutral-900 to-black p-4">
+         <div className="flex flex-col items-center justify-center w-full h-full relative z-20 pointer-events-auto bg-gradient-to-b from-neutral-900 to-black p-4">
           <div className="relative p-1 rounded-[2.5rem] bg-gradient-to-br from-teal-500 via-indigo-500 to-purple-600 animate-in fade-in zoom-in duration-700 shadow-[0_0_60px_rgba(20,184,166,0.3)] w-full max-w-lg">
-            <div className="flex flex-col items-center bg-neutral-950/90 backdrop-blur-3xl py-16 px-8 rounded-[2.4rem] border border-white/10 h-full">
-              <div className="relative mb-8">
-                <div className="absolute inset-0 bg-teal-500/30 blur-2xl rounded-full scale-150"></div>
-                <Tv className="w-28 h-28 text-teal-400 drop-shadow-2xl relative z-10" />
-              </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-white mb-12 tracking-wide text-center drop-shadow-lg leading-tight">
-                قناة أولى ثانوى
-              </h1>
-              <div className="relative w-full max-w-xs">
+            <div className="flex flex-col items-center bg-neutral-950/90 backdrop-blur-3xl py-12 px-8 rounded-[2.4rem] border border-white/10 h-full">
+              
+              {/* زر اختيار القناة أعلى إطار الواجهة مع دعم اللمس المباشر على الهاتف المحمول */}
+              <div className="relative w-full max-w-xs mb-10 z-30">
                 <button 
                   onClick={() => {
                     if (channels.length > 1) {
-                      setShowChannelDropdown(!showChannelDropdown);
+                      setShowChannelDropdown(prev => !prev);
                     } else {
                       setCurrentChannelId(channels[0]?.id || null);
                       setIsVideoOpen(true);
                     }
                   }}
-                  className="w-full bg-gradient-to-r from-teal-500 to-teal-400 hover:from-teal-400 hover:to-teal-300 text-white font-medium py-4 px-8 rounded-full shadow-lg shadow-teal-500/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 text-xl border border-teal-300/30"
+                  className="w-full bg-gradient-to-r from-teal-500 to-teal-400 hover:from-teal-400 hover:to-teal-300 text-white font-medium py-4 px-8 rounded-full shadow-lg shadow-teal-500/25 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 text-xl border border-teal-300/30 cursor-pointer select-none"
                 >
                   <PlayCircle className="w-7 h-7" />
                   {channels.length > 1 ? "اختر القناة" : "تشغيل البث"}
@@ -131,7 +126,7 @@ export default function LandingPage() {
                           setIsVideoOpen(true);
                           setShowChannelDropdown(false);
                         }}
-                        className="text-right w-full px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors font-medium border border-white/5 flex items-center gap-3"
+                        className="text-right w-full px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors font-medium border border-white/5 flex items-center gap-3 cursor-pointer select-none active:bg-white/20"
                       >
                         <Tv className="w-5 h-5 text-indigo-400 shrink-0" />
                         <span className="truncate">{chan.name}</span>
@@ -140,6 +135,16 @@ export default function LandingPage() {
                   </div>
                 )}
               </div>
+
+              {/* اللوغو واسم التطبيق متموقعين تحت زر الاختيار */}
+              <div className="relative mb-6">
+                <div className="absolute inset-0 bg-teal-500/30 blur-2xl rounded-full scale-150"></div>
+                <Tv className="w-24 h-24 text-teal-400 drop-shadow-2xl relative z-10" />
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold text-white mb-6 tracking-wide text-center drop-shadow-lg leading-tight">
+                قناة أولى ثانوى
+              </h1>
+
             </div>
           </div>
           
@@ -175,9 +180,9 @@ export default function LandingPage() {
               )}
             </div>
 
-          {/* Screen touch detector to toggle UI. Pointer events transparent where needed */}
+          {/* Screen touch detector to toggle UI. Pointer events transparent when UI is open so they can interact with the player controls */}
           <div 
-            className="absolute inset-0 z-10" 
+            className={`absolute inset-0 z-10 ${showUI ? 'pointer-events-none' : 'pointer-events-auto'}`} 
             onClick={toggleUI}
           ></div>
           
@@ -203,14 +208,13 @@ export default function LandingPage() {
 
               {/* Controls */}
               <div className="flex items-center pointer-events-auto gap-3 relative">
-                
-                {/* Volume Slider Group */}
-                <div className="flex items-center gap-2 bg-neutral-800/50 backdrop-blur-md rounded-full px-4 py-2 border border-white/10 hidden sm:flex">
+                                {/* Volume Slider Group */}
+                <div className="flex items-center gap-1.5 sm:gap-2 bg-neutral-800/50 backdrop-blur-md rounded-full px-2.5 py-1.5 sm:px-4 sm:py-2 border border-white/10 flex">
                   <button 
-                    onClick={() => setVolume(volume === 0 ? 50 : 0)}
+                    onClick={() => setVolume(volume === 0 ? 80 : 0)}
                     className="text-white/80 hover:text-white transition-colors"
                   >
-                    {volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                    {volume === 0 ? <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" /> : <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />}
                   </button>
                   <input 
                     type="range"
@@ -218,7 +222,7 @@ export default function LandingPage() {
                     max="100"
                     value={volume}
                     onChange={(e) => setVolume(parseInt(e.target.value))}
-                    className="w-24 h-1.5 appearance-none bg-neutral-700 rounded-full cursor-pointer outline-none hover:bg-neutral-600 transition-colors [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-md"
+                    className="w-14 sm:w-24 h-1 appearance-none bg-neutral-700 rounded-full cursor-pointer outline-none hover:bg-neutral-600 transition-colors [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 sm:[&::-webkit-slider-thumb]:w-3 sm:[&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-md"
                   />
                 </div>
 

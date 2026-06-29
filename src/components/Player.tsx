@@ -29,20 +29,62 @@ export default function Player({ videos, startOffset = 0, volume = 0, isPlaying 
     videosRef.current = videos;
   }, [videos]);
 
+  // Safely load YouTube iframe player API and check for both window.YT and window.YT.Player
   useEffect(() => {
-    if (!window.YT) {
+    const checkApi = () => {
+      if (window.YT && window.YT.Player) {
+        setApiReady(true);
+        return true;
+      }
+      return false;
+    };
+
+    if (checkApi()) {
+      return;
+    }
+
+    // Set fallback on global callback
+    const previousReady = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (previousReady) {
+        try { previousReady(); } catch(e) {}
+      }
+      setApiReady(true);
+    };
+
+    if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
       const tag = document.createElement('script');
       tag.src = "https://www.youtube.com/iframe_api";
       const firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
-      
-      window.onYouTubeIframeAPIReady = () => {
-        setApiReady(true);
-      };
-    } else {
-      setApiReady(true);
     }
+
+    const interval = setInterval(() => {
+      if (checkApi()) {
+        clearInterval(interval);
+      }
+    }, 150);
+
+    return () => clearInterval(interval);
   }, []);
+
+  // Watch for changes in active channel's primary video and load it if it changes
+  useEffect(() => {
+    if (!playerRef.current || !videos.length) return;
+    
+    const firstVideoId = videos[0].id;
+    if (currentlyPlayingIdRef.current !== firstVideoId) {
+      currentlyPlayingIdRef.current = firstVideoId;
+      if (onVideoChange) onVideoChange(firstVideoId);
+      
+      if (typeof playerRef.current.loadVideoById === 'function') {
+        playerRef.current.loadVideoById({
+          videoId: firstVideoId,
+          startSeconds: 0
+        });
+      }
+    }
+  }, [videos]);
 
   useEffect(() => {
     if (!apiReady || !videosRef.current.length || !containerRef.current) return;
@@ -80,6 +122,16 @@ export default function Player({ videos, startOffset = 0, volume = 0, isPlaying 
         events: {
           onReady: (event: any) => {
             event.target.playVideo();
+            if (volume > 0) {
+              try {
+                event.target.setVolume(volume);
+                event.target.unMute();
+              } catch(e) {}
+            } else {
+              try {
+                event.target.mute();
+              } catch(e) {}
+            }
           },
           onStateChange: (event: any) => {
             if (event.data === window.YT.PlayerState.ENDED) {
